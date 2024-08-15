@@ -128,21 +128,21 @@
 
             document.getElementById('skip-back').addEventListener('click', () => {
                 const currentTime = wavesurfer.getCurrentTime();
-                wavesurfer.setTime(Math.max(currentTime - 0.01, 0));
+                wavesurfer.setTime(Math.max(currentTime - 0.1, 0));
             });
 
             document.getElementById('skip-forward').addEventListener('click', () => {
                 const currentTime = wavesurfer.getCurrentTime();
-                wavesurfer.setTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+                wavesurfer.setTime(Math.min(currentTime + 0.1, wavesurfer.getDuration()));
             });
 
             document.addEventListener('keydown', (e) => {
                 if (e.code === 'ArrowLeft') {
                     const currentTime = wavesurfer.getCurrentTime();
-                    wavesurfer.setTime(Math.max(currentTime - 0.01, 0));
+                    wavesurfer.setTime(Math.max(currentTime - 0.1, 0));
                 } else if (e.code === 'ArrowRight') {
                     const currentTime = wavesurfer.getCurrentTime();
-                    wavesurfer.setTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+                    wavesurfer.setTime(Math.min(currentTime + 0.1, wavesurfer.getDuration()));
                 } else if (e.code === 'Space') {
                     e.preventDefault();
                     wavesurfer.playPause();
