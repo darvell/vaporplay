@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speedy Jams</title>
+    <script type="module" defer>
+        import WaveSurfer from 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js';
+        import Minimap from 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/plugins/minimap.esm.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#4F4A85',
+                progressColor: '#383351',
+                cursorColor: '#FFFFFF',
+                height: 450,
+                plugins: [
+                    Minimap.create({
+                        height: 30,
+                        waveColor: '#ddd',
+                        progressColor: '#999',
+                    })
+                ],
+            });
+            document.wavesurfer = wavesurfer;
+            
+            wavesurfer.on('ready', () => {
+                wavesurfer.zoom(0);
+                document.getElementById('time').textContent = `Time: 0:00.000`;
+                loadingOverlay.style.display = 'none';
+            });
+
+            wavesurfer.on('audioprocess', () => {
+                const currentTime = wavesurfer.getCurrentTime();
+                const minutes = Math.floor(currentTime / 60);
+                const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
+                const milliseconds = Math.floor((currentTime % 1) * 1000).toString().padStart(3, '0');
+                document.getElementById('time').textContent = `Time: ${minutes}:${seconds}.${milliseconds}`;
+            });
+
+            document.getElementById('play').addEventListener('click', () => {
+                wavesurfer.playPause();
+            });
+
+            document.getElementById('semitone').addEventListener('input', (e) => {
+                const semitone = parseFloat(e.target.value);
+                document.getElementById('semitone-display').textContent = `Semitone: ${semitone}`;
+                wavesurfer.setPlaybackRate(Math.pow(2, semitone / 12), false);
+            });
+
+            document.getElementById('zoom').addEventListener('input', (e) => {
+                const zoomLevel = parseInt(e.target.value);
+                wavesurfer.zoom(zoomLevel);
+            });
+
+            const fileInput = document.getElementById('file-input');
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    loadingOverlay.style.display = 'flex';
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        wavesurfer.loadBlob(file);
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+
+            document.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+            });
+
+            document.addEventListener('drop', (event) => {
+                event.preventDefault();
+                const file = event.dataTransfer.files[0];
+                if (file) {
+                    loadingOverlay.style.display = 'flex';
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        wavesurfer.loadBlob(file);
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+
+            document.getElementById('skip-back').addEventListener('click', () => {
+                const currentTime = wavesurfer.getCurrentTime();
+                wavesurfer.setCurrentTime(Math.max(currentTime - 0.01, 0));
+            });
+
+            document.getElementById('skip-forward').addEventListener('click', () => {
+                const currentTime = wavesurfer.getCurrentTime();
+                wavesurfer.setCurrentTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'ArrowLeft') {
+                    const currentTime = wavesurfer.getCurrentTime();
+                    wavesurfer.setCurrentTime(Math.max(currentTime - 0.01, 0));
+                } else if (e.code === 'ArrowRight') {
+                    const currentTime = wavesurfer.getCurrentTime();
+                    wavesurfer.setCurrentTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+                } else if (e.code === 'Space') {
+                    e.preventDefault();
+                    wavesurfer.playPause();
+                }
+            });
+
+            wavesurfer.load("/mariah.opus");
+        });
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #4F4A85 !important; 
+            border-radius: 2px !important;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent !important;
+        }
+        .scroll {
+            overflow-y: scroll !important;
+            overflow-x: hidden !important;
+            scrollbar-width: thin !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen relative">
+    <div id="loading-overlay" class="absolute inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center" style="display: none;">
+        <div class="text-lg font-bold">Loading...</div>
+    </div>
+    <h1 class="text-3xl font-bold mb-6">Speedy Jams</h1>
+    <div id="waveform" class="w-full mb-4"></div>
+    <div class="flex items-center space-x-4 mb-6">
+        <button id="play" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Play/Pause</button>
+        <button id="skip-back" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Skip Back</button>
+        <button id="skip-forward" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Skip Forward</button>
+        <div>
+            <input type="range" id="semitone" min="-16" max="16" value="0" step="0.5" class="w-48">
+            <span id="semitone-display">Semitone: 0</span>
+        </div>
+        <div>
+            <input type="range" id="zoom" min="0" max="500" value="0" class="w-48">
+            <span>Zoom</span>
+        </div>
+        <div id="time" class="text-lg">Time: 0:00.000</div>
+    </div>
+    <input type="file" id="file-input" class="hidden">
+    <label for="file-input" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded cursor-pointer">Drag and Drop or Click to Upload MP3</label>
+</body>
+</html>
