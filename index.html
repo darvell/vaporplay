@@ -10,6 +10,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const loadingOverlay = document.getElementById('loading-overlay');
+            const markerList = document.getElementById('marker-list');
             const wavesurfer = WaveSurfer.create({
                 container: '#waveform',
                 waveColor: '#4F4A85',
@@ -24,20 +25,59 @@
                     })
                 ],
             });
-            document.wavesurfer = wavesurfer;
-            
-            wavesurfer.on('ready', () => {
-                wavesurfer.zoom(0);
-                document.getElementById('time').textContent = `Time: 0:00.000`;
-                loadingOverlay.style.display = 'none';
-            });
 
-            wavesurfer.on('audioprocess', () => {
+            let markers = [];
+            let markerCounter = 0;
+
+            const renderMarkers = () => {
+                markerList.innerHTML = '';
+                markers.forEach((marker, index) => {
+                    const markerItem = document.createElement('div');
+                    markerItem.classList.add('flex', 'items-center', 'justify-between', 'mb-2');
+                    markerItem.innerHTML = `
+                        <div>
+                            <span>Marker ${index + 1}:</span> 
+                            <input type="number" value="${marker.time.toFixed(3)}" data-index="${index}" class="marker-time-input bg-gray-700 text-white px-2 rounded w-24 text-center">
+                        </div>
+                        <div>
+                            <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded play-marker" data-index="${index}">Play</button>
+                            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded delete-marker" data-index="${index}">Delete</button>
+                        </div>
+                    `;
+                    markerList.appendChild(markerItem);
+                });
+
+                document.querySelectorAll('.play-marker').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const index = parseInt(event.target.dataset.index);
+                        wavesurfer.setTime(markers[index].time);
+                        wavesurfer.play();
+                    });
+                });
+
+                document.querySelectorAll('.delete-marker').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const index = parseInt(event.target.dataset.index);
+                        markers.splice(index, 1);
+                        renderMarkers();
+                    });
+                });
+
+                document.querySelectorAll('.marker-time-input').forEach(input => {
+                    input.addEventListener('input', (event) => {
+                        const index = parseInt(event.target.dataset.index);
+                        const newTime = parseFloat(event.target.value);
+                        if (!isNaN(newTime)) {
+                            markers[index].time = newTime;
+                        }
+                    });
+                });
+            };
+
+            document.getElementById('set-marker').addEventListener('click', () => {
                 const currentTime = wavesurfer.getCurrentTime();
-                const minutes = Math.floor(currentTime / 60);
-                const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-                const milliseconds = Math.floor((currentTime % 1) * 1000).toString().padStart(3, '0');
-                document.getElementById('time').textContent = `Time: ${minutes}:${seconds}.${milliseconds}`;
+                markers.push({ id: markerCounter++, time: currentTime });
+                renderMarkers();
             });
 
             document.getElementById('play').addEventListener('click', () => {
@@ -88,25 +128,45 @@
 
             document.getElementById('skip-back').addEventListener('click', () => {
                 const currentTime = wavesurfer.getCurrentTime();
-                wavesurfer.setCurrentTime(Math.max(currentTime - 0.01, 0));
+                wavesurfer.setTime(Math.max(currentTime - 0.01, 0));
             });
 
             document.getElementById('skip-forward').addEventListener('click', () => {
                 const currentTime = wavesurfer.getCurrentTime();
-                wavesurfer.setCurrentTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+                wavesurfer.setTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
             });
 
             document.addEventListener('keydown', (e) => {
                 if (e.code === 'ArrowLeft') {
                     const currentTime = wavesurfer.getCurrentTime();
-                    wavesurfer.setCurrentTime(Math.max(currentTime - 0.01, 0));
+                    wavesurfer.setTime(Math.max(currentTime - 0.01, 0));
                 } else if (e.code === 'ArrowRight') {
                     const currentTime = wavesurfer.getCurrentTime();
-                    wavesurfer.setCurrentTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
+                    wavesurfer.setTime(Math.min(currentTime + 0.01, wavesurfer.getDuration()));
                 } else if (e.code === 'Space') {
                     e.preventDefault();
                     wavesurfer.playPause();
+                } else if (/^Digit[0-9]$/.test(e.code)) {
+                    const index = parseInt(e.code.replace('Digit', '')) - 1;
+                    if (markers[index]) {
+                        wavesurfer.setTime(markers[index].time);
+                        wavesurfer.play();
+                    }
                 }
+            });
+
+            wavesurfer.on('ready', () => {
+                wavesurfer.zoom(0);
+                document.getElementById('time').textContent = `Time: 0:00.000`;
+                loadingOverlay.style.display = 'none';
+            });
+
+            wavesurfer.on('audioprocess', () => {
+                const currentTime = wavesurfer.getCurrentTime();
+                const minutes = Math.floor(currentTime / 60);
+                const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
+                const milliseconds = Math.floor((currentTime % 1) * 1000).toString().padStart(3, '0');
+                document.getElementById('time').textContent = `Time: ${minutes}:${seconds}.${milliseconds}`;
             });
 
             wavesurfer.load("/mariah.opus");
@@ -119,16 +179,11 @@
             height: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background-color: #4F4A85 !important; 
-            border-radius: 2px !important;
+            background-color: #4F4A85;
+            border-radius: 2px;
         }
         ::-webkit-scrollbar-track {
-            background: transparent !important;
-        }
-        .scroll {
-            overflow-y: scroll !important;
-            overflow-x: hidden !important;
-            scrollbar-width: thin !important;
+            background: transparent;
         }
     </style>
 </head>
@@ -142,16 +197,18 @@
         <button id="play" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Play/Pause</button>
         <button id="skip-back" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Skip Back</button>
         <button id="skip-forward" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Skip Forward</button>
+        <button id="set-marker" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Set Marker</button>
         <div>
-            <input type="range" id="semitone" min="-16" max="16" value="0" step="0.5" class="w-48">
+            <input type="range" id="semitone" min="-12" max="12" value="0" step="0.5" class="w-48">
             <span id="semitone-display">Semitone: 0</span>
         </div>
         <div>
-            <input type="range" id="zoom" min="0" max="500" value="0" class="w-48">
+            <input type="range" id="zoom" min="0" max="200" value="0" class="w-48">
             <span>Zoom</span>
         </div>
         <div id="time" class="text-lg">Time: 0:00.000</div>
     </div>
+    <div id="marker-list" class="w-full max-w-md mb-6"></div>
     <input type="file" id="file-input" class="hidden">
     <label for="file-input" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded cursor-pointer">Drag and Drop or Click to Upload MP3</label>
 </body>
